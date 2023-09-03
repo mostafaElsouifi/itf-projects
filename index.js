@@ -30,10 +30,8 @@ const getPagesLinks = async (page, url) => {
   const allPagesUrls = [];
   await page.goto(url);
   await delay(2);
-  // await page.waitForSelector(".last.arrow");
   await page.click(".last.arrow");
   await delay(2);
-  // await page.waitForSelector(".page.selected");
   const lastPageNum = await page.$eval(
     ".page.selected span",
     (el) => el.textContent
@@ -53,8 +51,10 @@ const getPagesLinks = async (page, url) => {
 
 const init = async () => {
   console.log(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    "started at: " +
+      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   );
+
   const browser = await puppeteer.launch({
     headless: "new",
     ignoreDefaultArgs: [
@@ -72,9 +72,12 @@ const init = async () => {
   writeToCsv(allData, "data.xlsx");
   writeToJson(allData, "data.json");
 
-  console.log(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
   await browser.close();
 };
-init().then(() => console.log("done"));
+
+init().then(() => {
+  console.log(
+    "finished at: " +
+      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  );
+});

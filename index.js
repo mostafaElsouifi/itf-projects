@@ -74,7 +74,7 @@ const init = async () => {
   );
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: "new",
     ignoreDefaultArgs: [
       "--enable-automation",
       "--disable-extensions",

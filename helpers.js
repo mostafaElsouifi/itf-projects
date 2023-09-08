@@ -28,4 +28,26 @@ const writeToCsv = (data, fileName, sheetName = "data") => {
     console.log(e);
   }
 };
-module.exports = { delay, writeToJson, writeToCsv };
+
+const readJsonFile = (filePath) => {
+  try {
+    const data = fs.readFileSync(filePath, "utf8");
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      console.error(`NO '${filePath}' file.`);
+    } else {
+      console.error(`An error occurred: ${error.message}`);
+    }
+    return null;
+  }
+};
+const deleteFile = (filePath) => {
+  try {
+    fs.unlinkSync(filePath);
+    console.log(`File '${filePath}' successfully deleted.`);
+  } catch (error) {
+    console.error(`An error occurred: ${error.message}`);
+  }
+};
+module.exports = { delay, writeToJson, writeToCsv, readJsonFile, deleteFile };

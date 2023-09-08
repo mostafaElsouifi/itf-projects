@@ -1,14 +1,21 @@
 require("dotenv").config();
 const puppeteer = require("puppeteer");
-const { delay, writeToJson, writeToCsv } = require("./helpers");
+const { delay, writeToJson, writeToCsv, readJsonFile } = require("./helpers");
 const { MAIN_URL } = process.env;
 
 const getDetailPages = async (page, pagesUrls) => {
-  const allData = [];
-  let i = 0;
+  let allData = [];
+  let lastUrlNumber = 0;
+  // read if there is data tracking error
+  const detailPages_tracking = readJsonFile("detailPages_tracking.json");
+  if (detailPages_tracking) {
+    allData = detailPages_tracking.allData;
+    lastUrlNumber = detailPages_tracking.lastUrlNumber;
+  }
+  let i = lastUrlNumber;
   try {
     for (i; i < pagesUrls.length; i++) {
-      await page.goto(pagesUrls[i].url);
+      await page.goto(pagesUrls[i]);
 
       await delay(1);
 
@@ -29,23 +36,43 @@ const getDetailPages = async (page, pagesUrls) => {
     return allData;
   } catch (e) {
     if (i === 0) return;
+    const errorTraking = {
+      lastUrlNumber: i,
+      allData: allData,
+    };
     console.log(`error happen in url : ${i}`);
-    writeToJson(allData, "data_scraped.json");
+    writeToJson(errorTraking, "detailPages_tracking.json");
   }
 };
 
 const getPagesLinks = async (page, url) => {
-  const allPagesUrls = [];
-  await page.goto(url);
-  await delay(2);
-  await page.click(".last.arrow");
-  await delay(2);
-  const lastPageNum = await page.$eval(
-    ".page.selected span",
-    (el) => el.textContent
-  );
+  let allPagesUrls = [];
+  let lastPageNum;
+  let pageNumber;
+  // check if there is pages error happen
+  const pagesTracking = readJsonFile("pages_tracking.json");
+  if (pagesTracking && pagesTracking.pageNumber === pagesTracking.lastPageNum)
+    return pagesTracking.urls;
+
+  if (!pagesTracking) {
+    pageNumber = 1;
+    await page.goto(url);
+    await delay(2);
+    await page.click(".last.arrow");
+    await delay(2);
+    lastPageNum = await page.$eval(
+      ".page.selected span",
+      (el) => el.textContent
+    );
+  }
+  if (pagesTracking) {
+    lastPageNum = pagesTracking.lastPageNum;
+    pageNumber = pagesTracking.pageNumber;
+    allPagesUrls = pagesTracking.urls;
+  }
+
   // loop through all pages to get all detail pages links
-  let i = 1;
+  let i = pageNumber;
   try {
     for (i; i <= lastPageNum; i++) {
       console.log(`in progress with page number : ${i}`);
@@ -54,15 +81,28 @@ const getPagesLinks = async (page, url) => {
       await delay(2);
       const hrefs = await page.$$eval("#searchResultTbl .rowlink", (links) =>
         links.map((link) => {
-          return { url: link.href };
+          return link.href;
         })
       );
       allPagesUrls.push(...hrefs);
     }
+    const pagesTraking = {
+      pageNumber: i,
+      lastPageNum: +lastPageNum,
+      urls: allPagesUrls,
+    };
+    console.log("done : collecting all pages");
+
+    writeToJson(pagesTraking, "pages_tracking.json");
   } catch (e) {
+    const pagesTraking = {
+      pageNumber: i,
+      lastPageNum: +lastPageNum,
+      urls: allPagesUrls,
+    };
     console.log(`error in page number ${i}`);
 
-    writeToJson(allPagesUrls, "pages_urls.json");
+    writeToJson(pagesTraking, "pages_tracking.json");
   }
   return allPagesUrls;
 };
@@ -74,7 +114,7 @@ const init = async () => {
   );
 
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: false,
     ignoreDefaultArgs: [
       "--enable-automation",
       "--disable-extensions",
@@ -91,7 +131,7 @@ const init = async () => {
     writeToCsv(allData, "data.xlsx");
     writeToJson(allData, "data.json");
   } catch (e) {
-    console.log("Error happen ");
+    console.log(e);
   }
 
   await browser.close();
